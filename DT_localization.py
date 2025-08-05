@@ -148,7 +148,7 @@ def check_point_on_surface(point, surface_vertices, surface_normal, length, widt
     return abs(coord_length) <= length/2 and abs(coord_width) <= width/2
 
 def calculate_aoa_and_delay(bs_position, user_position, reflection_point=None, c=3e8, 
-                           add_noise=True, snr_db=20, num_antennas=64):
+                           add_noise=True, snr_db=20, num_antennas=64, clock_bias=0.0):
     """
     Calculate Angle of Arrival (AOA) and time delay for a path with realistic noise.
     
@@ -160,6 +160,7 @@ def calculate_aoa_and_delay(bs_position, user_position, reflection_point=None, c
         add_noise: Whether to add Gaussian noise to measurements
         snr_db: Signal-to-Noise Ratio in dB
         num_antennas: Number of antennas for noise modeling
+        clock_bias: Clock bias in nanoseconds (default: 0.0)
     
     Returns:
         aoa_azimuth: Azimuth angle in degrees (with noise if enabled)
@@ -189,10 +190,10 @@ def calculate_aoa_and_delay(bs_position, user_position, reflection_point=None, c
     horizontal_distance = np.sqrt(path_vector_normalized[0]**2 + path_vector_normalized[1]**2)
     aoa_elevation = np.arctan2(path_vector_normalized[2], horizontal_distance) * 180 / np.pi
     
-    # Time delay
-    time_delay = path_length / c * 1e9  # Convert to nanoseconds
+    # Time delay (including clock bias)
+    time_delay = path_length / c * 1e9 + clock_bias  # Convert to nanoseconds and add clock bias
     
-    noise_info = {'snr_db': snr_db, 'num_antennas': num_antennas}
+    noise_info = {'snr_db': snr_db, 'num_antennas': num_antennas, 'clock_bias': clock_bias}
     
     if add_noise:
         # Convert SNR from dB to linear scale
@@ -260,7 +261,7 @@ def generate_upa_steering_vector(azimuth, elevation, num_antennas_x, num_antenna
 
 def simulate_ofdm_channel(bs_position, user_position, reflections, num_antennas_x=8, num_antennas_y=8, 
                          frequency=28e9, bandwidth=100e6, num_subcarriers=2048, c=3e8,
-                         add_noise=True, snr_db=20):
+                         add_noise=True, snr_db=20, clock_bias=0.0):
     """
     Simulate OFDM channel for UPA antenna array with noise.
     
@@ -276,6 +277,7 @@ def simulate_ofdm_channel(bs_position, user_position, reflections, num_antennas_
         c: Speed of light
         add_noise: Whether to add noise to measurements
         snr_db: Signal-to-Noise Ratio in dB
+        clock_bias: Clock bias in nanoseconds (default: 0.0)
     
     Returns:
         channel_info: Dictionary containing channel information
@@ -288,7 +290,7 @@ def simulate_ofdm_channel(bs_position, user_position, reflections, num_antennas_
     
     # LOS path
     aoa_azimuth_los, aoa_elevation_los, time_delay_los, path_length_los, noise_info_los = calculate_aoa_and_delay(
-        bs_position, user_position, add_noise=add_noise, snr_db=snr_db, num_antennas=num_antennas
+        bs_position, user_position, add_noise=add_noise, snr_db=snr_db, num_antennas=num_antennas, clock_bias=clock_bias
     )
     
     # Generate LOS steering vector
@@ -305,7 +307,7 @@ def simulate_ofdm_channel(bs_position, user_position, reflections, num_antennas_
     for i, reflection in enumerate(reflections):
         aoa_azimuth, aoa_elevation, time_delay, path_length, noise_info = calculate_aoa_and_delay(
             bs_position, user_position, reflection['reflection_point'], 
-            add_noise=add_noise, snr_db=snr_db, num_antennas=num_antennas
+            add_noise=add_noise, snr_db=snr_db, num_antennas=num_antennas, clock_bias=clock_bias
         )
         
         # Generate steering vector for reflection
@@ -411,13 +413,14 @@ def calculate_specular_reflections(user_position, bs_position, surfaces):
     
     return reflections
 
-def analyze_dt_localization(add_noise=True, snr_db=20):
+def analyze_dt_localization(add_noise=True, snr_db=20, clock_bias=15.0):
     """
     Analyze DT localization with UPA antenna array and OFDM signals.
     
     Args:
         add_noise: Whether to add Gaussian noise to measurements
         snr_db: Signal-to-Noise Ratio in dB
+        clock_bias: Clock bias in nanoseconds (default: 15.0 ns)
     """
     
     # Define positions in 3D space (x, y, z)
@@ -471,12 +474,13 @@ def analyze_dt_localization(add_noise=True, snr_db=20):
     # Simulate OFDM channel with noise
     channel_info = simulate_ofdm_channel(bs_position, user_position, reflections, 
                                         num_antennas_x, num_antennas_y, frequency, bandwidth, num_subcarriers,
-                                        add_noise=add_noise, snr_db=snr_db)
+                                        add_noise=add_noise, snr_db=snr_db, clock_bias=clock_bias)
     
     # Print analysis results
     print("=== DT Localization Analysis Results ===")
     print(f"User Position: ({user_position[0]:.1f}, {user_position[1]:.1f}, {user_position[2]:.1f}) m")
     print(f"Base Station Position: ({bs_position[0]:.1f}, {bs_position[1]:.1f}, {bs_position[2]:.1f}) m")
+    print(f"True Clock Bias: {clock_bias:.1f} ns")
     print(f"UPA Configuration: {num_antennas_x}×{num_antennas_y} = {total_antennas} antennas")
     print(f"Carrier Frequency: {frequency/1e9:.1f} GHz")
     print(f"Bandwidth: {bandwidth/1e6:.1f} MHz")
@@ -577,7 +581,8 @@ def analyze_dt_localization(add_noise=True, snr_db=20):
             'frequency': frequency,
             'bandwidth': bandwidth,
             'num_subcarriers': num_subcarriers
-        }
+        },
+        'clock_bias': clock_bias
     }
 
 def associate_aoa_with_paths(aoa_measurements, bs_position, surfaces, K=1000, threshold=0.8, 
