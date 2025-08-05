@@ -427,7 +427,7 @@ def analyze_dt_localization(add_noise=True, snr_db=20):
     # Define 3 surfaces in the space with length vectors
     surfaces = [
         {
-            'reference_point': np.array([5, 2, 5]),      # Surface 1: vertical wall
+            'reference_point': np.array([7.5, 2, 5]),      # Surface 1: vertical wall (moved +2.5m along x-axis)
             'length': 8,  # 2x larger
             'width': 6,   # 2x larger
             'normal_vector': np.array([0, -1, 0]),       # Facing negative Y direction
@@ -436,22 +436,22 @@ def analyze_dt_localization(add_noise=True, snr_db=20):
             'label': 'Surface 1 (Wall)'
         },
         {
-            'reference_point': np.array([8, -1, 3]),     # Surface 2: horizontal surface
-            'length': 5,  # Original size
-            'width': 4,   # Original size
+            'reference_point': np.array([3, -1, 0]),     # Surface 2: horizontal surface (moved -5m along x-axis)
+            'length': 10, # 2x larger (5*2)
+            'width': 8,   # 2x larger (4*2)
             'normal_vector': np.array([0, 0, 1]),        # Facing upward
             'length_vector': np.array([1, 0, 0]),        # Length direction along X-axis
             'color': 'green',
             'label': 'Surface 2 (Floor)'
         },
         {
-            'reference_point': np.array([12, 1, 7]),     # Surface 3: inclined surface
-            'length': 3,  # Original size
-            'width': 3,   # Original size
-            'normal_vector': np.array([-1, 0, 1]),       # Inclined surface
-            'length_vector': np.array([0, 1, 0]),        # Length direction along Y-axis
-            'color': 'orange',
-            'label': 'Surface 3 (Inclined)'
+            'reference_point': np.array([12, -1, 12]),    # Surface 3: ceiling (moved +4m along x-axis)
+            'length': 10, # Similar to Surface 2 (5*2)
+            'width': 8,   # Similar to Surface 2 (4*2)
+            'normal_vector': np.array([0, 0, -1]),       # Facing downward (ceiling)
+            'length_vector': np.array([1, 0, 0]),        # Length direction along X-axis
+            'color': 'blue',
+            'label': 'Surface 3 (Ceiling)'
         }
     ]
     
@@ -610,14 +610,7 @@ def associate_aoa_with_paths(aoa_measurements, bs_position, surfaces, K=1000, th
         
         # Check if this is likely a LOS measurement (first measurement is typically LOS)
         is_los = (i == 0)  # Assume first measurement is LOS
-        
-        # For the second measurement (reflection), force association with Surface 1 (the wall)
-        if i == 1:  # Second measurement should be reflection from Surface 1
-            is_reflection = True
-            forced_surface = 0  # Surface 1 (index 0)
-        else:
-            is_reflection = False
-            forced_surface = None
+        is_reflection = not is_los  # All non-LOS measurements are reflections
         
         # Count hits for each surface
         surface_hits = {j: 0 for j in range(len(surfaces))}
@@ -633,11 +626,11 @@ def associate_aoa_with_paths(aoa_measurements, bs_position, surfaces, K=1000, th
             azimuth_rad = np.radians(azimuth_sample)
             elevation_rad = np.radians(elevation_sample)
             
-            # Calculate direction vector from BS
+            # Calculate direction vector from BS (negate to get direction FROM BS)
             direction_vector = np.array([
-                np.cos(elevation_rad) * np.cos(azimuth_rad),
-                np.cos(elevation_rad) * np.sin(azimuth_rad),
-                np.sin(elevation_rad)
+                -np.cos(elevation_rad) * np.cos(azimuth_rad),
+                -np.cos(elevation_rad) * np.sin(azimuth_rad),
+                -np.sin(elevation_rad)
             ])
             
             # Geometric ray tracing: extend the ray from BS in the AOA direction
@@ -655,29 +648,17 @@ def associate_aoa_with_paths(aoa_measurements, bs_position, surfaces, K=1000, th
                     surface['length_vector']
                 )
                 
-                # Check if ray intersects with this surface plane
+                # Check if ray intersects with this surface plane and is within bounds
                 intersection_point = check_ray_surface_intersection(
-                    ray_origin, ray_direction, vertices, surface['normal_vector']
+                    ray_origin, ray_direction, vertices, surface['normal_vector'],
+                    surface['length'], surface['width'], surface['reference_point'], surface['length_vector']
                 )
                 
                 if intersection_point is not None:
-                    # Check if intersection point is within surface bounds
-                    if check_point_on_surface(intersection_point, vertices, surface['normal_vector'],
-                                            surface['length'], surface['width'], surface['reference_point'],
-                                            surface['length_vector']):
-                        surface_hits[j] += 1
-                        total_valid_samples += 1
-                        break  # Only count first valid intersection
-                    else:
-                        # More lenient check: if intersection is close to surface, count it
-                        dist_to_center = np.linalg.norm(intersection_point - surface['reference_point'])
-                        max_surface_radius = max(surface['length'], surface['width']) / 2
-                        
-                        # If intersection is within 3x the surface radius, count it as a hit
-                        if dist_to_center <= max_surface_radius * 3:
-                            surface_hits[j] += 1
-                            total_valid_samples += 1
-                            break
+                    # Intersection point is within surface bounds (already checked in check_ray_surface_intersection)
+                    surface_hits[j] += 1
+                    total_valid_samples += 1
+                    break  # Only count first valid intersection
         
         # Calculate association probabilities
         association_results = {
@@ -702,25 +683,6 @@ def associate_aoa_with_paths(aoa_measurements, bs_position, surfaces, K=1000, th
                     'probability': 0.0,
                     'surface_label': surfaces[j]['label']
                 }
-        # For reflection measurements, force association with Surface 1
-        elif is_reflection:
-            association_results['valid_path'] = True
-            association_results['associated_surface'] = forced_surface
-            
-            # Set all surface probabilities to 0 except Surface 1
-            for j in range(len(surfaces)):
-                if j == forced_surface:
-                    association_results['surface_associations'][j] = {
-                        'hits': 1000,  # All samples hit Surface 1
-                        'probability': 1.0,
-                        'surface_label': surfaces[j]['label']
-                    }
-                else:
-                    association_results['surface_associations'][j] = {
-                        'hits': 0,
-                        'probability': 0.0,
-                        'surface_label': surfaces[j]['label']
-                    }
         elif total_valid_samples > 0:
             for j, hits in surface_hits.items():
                 probability = hits / total_valid_samples
@@ -748,7 +710,8 @@ def associate_aoa_with_paths(aoa_measurements, bs_position, surfaces, K=1000, th
     
     return associations
 
-def check_ray_surface_intersection(ray_origin, ray_direction, surface_vertices, surface_normal):
+def check_ray_surface_intersection(ray_origin, ray_direction, surface_vertices, surface_normal, 
+                                 surface_length=None, surface_width=None, reference_point=None, length_vector=None):
     """
     Check if a ray intersects with a surface and return the intersection point.
     
@@ -757,12 +720,16 @@ def check_ray_surface_intersection(ray_origin, ray_direction, surface_vertices, 
         ray_direction: Direction vector of the ray (normalized)
         surface_vertices: 4 vertices defining the surface
         surface_normal: Normal vector of the surface
+        surface_length: Length of the surface (optional, for boundary check)
+        surface_width: Width of the surface (optional, for boundary check)
+        reference_point: Reference point of the surface (optional, for boundary check)
+        length_vector: Length vector of the surface (optional, for boundary check)
     
     Returns:
-        intersection_point: Point of intersection (if exists), None otherwise
+        intersection_point: Point of intersection (if exists and within bounds), None otherwise
     """
-    # Get a point on the surface (use the first vertex)
-    surface_point = surface_vertices[0]
+    # Get a point on the surface (use the reference point)
+    surface_point = reference_point
     normal = surface_normal / np.linalg.norm(surface_normal)
     
     # Calculate intersection with the plane containing the surface
@@ -780,6 +747,13 @@ def check_ray_surface_intersection(ray_origin, ray_direction, surface_vertices, 
         return None
     
     intersection_point = ray_origin + t * ray_direction
+    
+    # Check if intersection point lies within surface boundaries (if parameters provided)
+    if (surface_length is not None and surface_width is not None and 
+        reference_point is not None and length_vector is not None):
+        if not check_point_on_surface(intersection_point, surface_vertices, surface_normal,
+                                    surface_length, surface_width, reference_point, length_vector):
+            return None  # Intersection point is outside surface boundaries
     
     return intersection_point
 
@@ -835,8 +809,6 @@ if __name__ == "__main__":
         print(f"Measurement {i+1}:")
         if association['is_los']:
             print(f"  Type: LOS (Line-of-Sight)")
-        elif i == 1:  # Second measurement
-            print(f"  Type: NLOS (Reflection from Surface 1)")
         else:
             print(f"  Type: NLOS (Non-Line-of-Sight)")
         print(f"  AOA: ({association['azimuth']:.1f}°, {association['elevation']:.1f}°)")

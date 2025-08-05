@@ -16,7 +16,7 @@ def visualize_dt_localization():
     # Define 3 surfaces in the space with length vectors
     surfaces = [
         {
-            'reference_point': np.array([5, 2, 5]),      # Surface 1: vertical wall
+            'reference_point': np.array([7.5, 2, 5]),      # Surface 1: vertical wall (moved +2.5m along x-axis)
             'length': 8,  # 2x larger
             'width': 6,   # 2x larger
             'normal_vector': np.array([0, -1, 0]),       # Facing negative Y direction
@@ -25,22 +25,22 @@ def visualize_dt_localization():
             'label': 'Surface 1 (Wall)'
         },
         {
-            'reference_point': np.array([8, -1, 3]),     # Surface 2: horizontal surface
-            'length': 5,  # Original size
-            'width': 4,   # Original size
+            'reference_point': np.array([3, -1, 0]),     # Surface 2: horizontal surface (moved -5m along x-axis)
+            'length': 10, # 2x larger (5*2)
+            'width': 8,   # 2x larger (4*2)
             'normal_vector': np.array([0, 0, 1]),        # Facing upward
             'length_vector': np.array([1, 0, 0]),        # Length direction along X-axis
             'color': 'green',
             'label': 'Surface 2 (Floor)'
         },
         {
-            'reference_point': np.array([12, 1, 7]),     # Surface 3: inclined surface
-            'length': 3,  # Original size
-            'width': 3,   # Original size
-            'normal_vector': np.array([-1, 0, 1]),       # Inclined surface
-            'length_vector': np.array([0, 1, 0]),        # Length direction along Y-axis
-            'color': 'orange',
-            'label': 'Surface 3 (Inclined)'
+            'reference_point': np.array([12, -1, 12]),    # Surface 3: ceiling (moved +4m along x-axis)
+            'length': 10, # Similar to Surface 2 (5*2)
+            'width': 8,   # Similar to Surface 2 (4*2)
+            'normal_vector': np.array([0, 0, -1]),       # Facing downward (ceiling)
+            'length_vector': np.array([1, 0, 0]),        # Length direction along X-axis
+            'color': 'blue',
+            'label': 'Surface 3 (Ceiling)'
         }
     ]
     
