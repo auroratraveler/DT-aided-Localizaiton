@@ -413,7 +413,7 @@ def calculate_specular_reflections(user_position, bs_position, surfaces):
     
     return reflections
 
-def analyze_dt_localization(add_noise=True, snr_db=20, clock_bias=15.0):
+def analyze_dt_localization(add_noise=True, snr_db=20, clock_bias=25.0):
     """
     Analyze DT localization with UPA antenna array and OFDM signals.
     
@@ -425,6 +425,7 @@ def analyze_dt_localization(add_noise=True, snr_db=20, clock_bias=15.0):
     
     # Define positions in 3D space (x, y, z)
     user_position = np.array([0, 0, 1.5])      # User at ground level with height 1.5m
+    #user_position = np.array([4.536, 0.591, 3.654])  # New user position
     bs_position = np.array([15, 0, 10])        # Base station at height 10m
     
     # Define 3 surfaces in the space with length vectors
