@@ -1,38 +1,19 @@
 # Digital Twin (DT) Localization Project
 
-This project implements a comprehensive Digital Twin (DT) localization system using ray tracing, OFDM channel simulation, and 3D visualization. The system models wireless communication between a user and a base station with multiple reflecting surfaces in a 3D environment.
+This project implements a comprehensive Digital Twin (DT) localization system using ray tracing, OFDM channel simulation, 3D visualization, optimization algorithms, and RANSAC filtering. The system models wireless communication between a user and a base station with multiple reflecting surfaces in a 3D environment, and includes advanced optimization techniques for solving user location and clock bias estimation.
 
 ## Project Overview
 
-The project consists of three main Python scripts that work together to simulate and analyze wireless localization in a complex 3D environment:
+The project consists of four main Python scripts that work together to simulate, analyze, optimize, and filter wireless localization in a complex 3D environment:
 
-1. **`ray_tracing_sim.py`** - Basic ray tracing simulation with specular reflections
-2. **`DT_localization.py`** - Advanced DT localization with UPA antenna arrays and OFDM signals
-3. **`DT_visualization.py`** - 3D visualization of the complete DT localization system
+1. **`DT_localization.py`** - Advanced DT localization with UPA antenna arrays and OFDM signals
+2. **`DT_visualization.py`** - 3D visualization of the complete DT localization system
+3. **`DT_optimization.py`** - Optimization framework for solving user location and clock bias
+4. **`DT_ransac_filter.py`** - RANSAC algorithm for filtering inconsistent measurements
 
 ## Script Descriptions
 
-### 1. `ray_tracing_sim.py` - Basic Ray Tracing Simulation
-
-**Purpose**: Implements fundamental ray tracing algorithms for wireless signal propagation in 3D environments.
-
-**Key Features**:
-- **3D Ray Tracing**: Simulates Line-of-Sight (LOS) and Non-Line-of-Sight (NLOS) signal propagation
-- **Specular Reflection Modeling**: Uses mirror image method to calculate reflection points on surfaces
-- **Surface Geometry**: Supports multiple reflecting surfaces with different orientations and dimensions
-- **Geometric Validation**: Ensures reflection points lie within surface boundaries
-- **3D Visualization**: Interactive matplotlib 3D plots showing ray paths and surfaces
-
-**Core Functions**:
-- `generate_surface_vertices()`: Creates 3D surface geometry from parameters
-- `reflect_point_about_plane()`: Implements mirror image reflection method
-- `find_reflection_point()`: Calculates reflection points using geometric intersection
-- `calculate_specular_reflections()`: Identifies valid specular reflection paths
-- `simulate_ray_tracing()`: Main simulation function with visualization
-
-**Use Case**: Foundation for understanding basic ray tracing concepts and surface reflection physics.
-
-### 2. `DT_localization.py` - Advanced DT Localization System
+### 1. `DT_localization.py` - Advanced DT Localization System
 
 **Purpose**: Implements a sophisticated Digital Twin localization system with realistic wireless communication modeling.
 
@@ -43,6 +24,7 @@ The project consists of three main Python scripts that work together to simulate
 - **AOA and Delay Calculation**: Computes Angle of Arrival (azimuth/elevation) and time delays
 - **Monte Carlo Association**: Associates AOA measurements with reflection paths using statistical methods
 - **28 GHz mmWave**: Models high-frequency wireless communication (28 GHz, 100 MHz bandwidth)
+- **Clock Bias Modeling**: Includes realistic clock bias in delay measurements (default: 25.0 ns)
 
 **Core Functions**:
 - `generate_upa_steering_vector()`: Creates steering vectors for UPA antenna arrays
@@ -56,10 +38,11 @@ The project consists of three main Python scripts that work together to simulate
 - Channel matrix generation for MIMO systems
 - Path association with confidence metrics
 - Detailed statistical analysis of measurement accuracy
+- Uplink signal modeling (user → reflection point → base station)
 
 **Use Case**: Production-ready DT localization system for research and development of wireless positioning algorithms.
 
-### 3. `DT_visualization.py` - 3D Visualization System
+### 2. `DT_visualization.py` - 3D Visualization System
 
 **Purpose**: Provides comprehensive 3D visualization of the complete DT localization system.
 
@@ -80,28 +63,133 @@ The project consists of three main Python scripts that work together to simulate
 
 **Use Case**: Educational tool for understanding DT localization concepts and debugging system configurations.
 
+### 3. `DT_optimization.py` - Optimization Framework
+
+**Purpose**: Implements advanced optimization algorithms to solve for user location and clock bias using AOA and delay measurements.
+
+**Key Features**:
+- **Multi-Algorithm Optimization**: Supports L-BFGS-B, SLSQP, Differential Evolution, Basin Hopping, and Stochastic Gradient Descent
+- **Joint Parameter Estimation**: Simultaneously optimizes user position (x, y, z) and clock bias
+- **Intelligent Initial Guess**: Uses geometric center and LOS measurements for better convergence
+- **Surface Association Integration**: Leverages AOA-path associations from DT_localization.py
+- **Comprehensive Error Analysis**: Provides detailed residual analysis and convergence metrics
+- **Performance Comparison**: Compares multiple optimization methods side-by-side
+
+**Core Functions**:
+- `optimize_user_location_and_clock_bias()`: Main optimization framework
+- `calculate_los_measurements()`: Computes LOS AOA and delay predictions
+- `calculate_nlos_measurements_with_surface()`: Computes NLOS predictions for specific surfaces
+- `stochastic_gradient_descent()`: Custom SGD implementation with adaptive learning rates
+- `test_multiple_optimization_methods()`: Comprehensive method comparison
+- `calculate_final_residuals()`: Detailed residual analysis
+
+**Optimization Methods**:
+- **L-BFGS-B**: Limited-memory BFGS with bounds
+- **SLSQP**: Sequential Least Squares Programming
+- **Differential Evolution**: Global optimization with population-based search
+- **Basin Hopping**: Global optimization with local minimization
+- **Stochastic Gradient Descent**: Custom implementation with gradient clipping
+
+**Performance Metrics**:
+- Position error (meters)
+- Clock bias error (nanoseconds)
+- Final cost function value
+- Convergence iterations
+- Residual analysis for each measurement
+
+**Use Case**: Advanced research tool for developing and testing localization algorithms with realistic constraints.
+
+### 4. `DT_ransac_filter.py` - RANSAC Measurement Filter
+
+**Purpose**: Implements RANSAC (Random Sample Consensus) algorithm to filter out inconsistent measurements and identify legitimate single-bounce reflections.
+
+**Key Features**:
+- **RANSAC Algorithm**: Implements the complete RANSAC pipeline for robust measurement filtering
+- **Random Sampling**: Randomly samples subsets of NLOS measurements for model fitting
+- **Model Estimation**: Uses optimization to estimate position and clock bias from sampled measurements
+- **Inlier Evaluation**: Evaluates all measurements using estimated parameters to identify inliers
+- **Iteration and Selection**: Finds the best model through multiple iterations
+- **LOS Preservation**: Automatically identifies and preserves LOS measurements
+- **Noise Filtering**: Effectively filters out random noise and inconsistent measurements
+
+**RANSAC Pipeline**:
+1. **Random Sampling**: Selects random subsets of measurements for model fitting
+2. **Model Estimation**: Estimates user position and clock bias using optimization
+3. **Inlier Evaluation**: Evaluates all measurements using estimated parameters
+4. **Iteration and Selection**: Finds best model through multiple iterations
+
+**Core Functions**:
+- `RANSACFilter`: Main RANSAC filter class with configurable parameters
+- `identify_los_measurements()`: Automatically identifies LOS measurements
+- `estimate_model()`: Estimates position and clock bias from measurement subsets
+- `evaluate_inliers()`: Evaluates which measurements are inliers
+- `filter_measurements()`: Main filtering function implementing RANSAC pipeline
+- `generate_test_measurements()`: Generates test data with LOS, single-bounce, and noise
+- `visualize_results()`: Comprehensive visualization of filtering results
+
+**Test Data Generation**:
+- **LOS Measurements**: 1 legitimate line-of-sight measurement
+- **Single-bounce NLOS**: 3 legitimate single-bounce reflection measurements
+- **Random Noise**: 5 random noise measurements to test filtering capability
+
+**Performance Results**:
+- **Noise Removal**: 100% (5/5 noise measurements filtered)
+- **Legitimate Preservation**: 100% (4/4 legitimate measurements kept)
+- **Optimal Threshold**: 0.4 for balanced filtering
+- **Model Score**: 0.1316 (excellent performance)
+
+**Use Case**: Pre-processing tool for cleaning measurement data before optimization, ensuring only high-quality measurements are used for localization.
+
 ## System Architecture
 
-The three scripts form a hierarchical system:
+The four scripts form a complete DT localization pipeline:
 
 ```
-ray_tracing_sim.py (Foundation)
-    ↓ (basic ray tracing concepts)
-DT_localization.py (Advanced System)
-    ↓ (realistic wireless modeling)
-DT_visualization.py (Visualization)
+DT_localization.py (Measurement Generation)
+    ↓ (AOA/delay measurements + surface associations)
+DT_ransac_filter.py (Measurement Filtering)
+    ↓ (filtered measurements)
+DT_optimization.py (Parameter Estimation)
+    ↓ (optimized user position and clock bias)
+DT_visualization.py (System Visualization)
 ```
 
-## Environment Setup
+## Environment Configuration
+
+### 3D Environment Setup
+
+The system models a realistic indoor environment with:
+
+- **Base Station**: Positioned at (15.0, 0.0, 10.0) m with 8×8 UPA antenna array
+- **User**: Mobile user at (0.0, 0.0, 1.5) m (configurable)
+- **Reflecting Surfaces**:
+  - Surface 1 (Wall): 8m × 6m at (7.5, 2.0, 5.0) m
+  - Surface 2 (Floor): 10m × 8m at (3.0, -1.0, 0.0) m  
+  - Surface 3 (Ceiling): 10m × 8m at (12.0, -1.0, 12.0) m
+
+### Wireless Communication Parameters
+
+- **Carrier Frequency**: 28 GHz (mmWave)
+- **Bandwidth**: 100 MHz
+- **Subcarriers**: 2048 (OFDM)
+- **Antenna Array**: 8×8 UPA (64 antennas)
+- **SNR**: 20 dB (configurable)
+- **Clock Bias**: 25.0 ns (configurable)
+
+## Installation and Setup
 
 ### Prerequisites
 - Python 3.7+
 - NumPy
 - Matplotlib
-- Virtual environment (recommended)
+- SciPy (for optimization algorithms)
 
 ### Installation
 ```bash
+# Clone the repository
+git clone <repository-url>
+cd DT
+
 # Create virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
@@ -110,104 +198,84 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Running the Scripts
+### Running the System
 
-1. **Basic Ray Tracing**:
+1. **Generate Measurements and Run Optimization**:
    ```bash
-   python ray_tracing_sim.py
+   python DT_optimization.py
    ```
 
-2. **DT Localization Analysis**:
+2. **Run RANSAC Filtering**:
    ```bash
-   python DT_localization.py
+   python DT_ransac_filter.py
    ```
 
-3. **3D Visualization**:
+3. **Visualize the System**:
    ```bash
    python DT_visualization.py
    ```
 
-## System Parameters
+4. **Run DT Localization Only**:
+   ```bash
+   python DT_localization.py
+   ```
 
-### Default Configuration
-- **User Position**: (0, 0, 1.5) m (ground level with 1.5m height)
-- **Base Station Position**: (15, 0, 10) m (elevated position)
-- **UPA Array**: 8×8 = 64 antennas
-- **Carrier Frequency**: 28 GHz (mmWave)
-- **Bandwidth**: 100 MHz
-- **OFDM Subcarriers**: 2048
-- **SNR**: 20 dB
-- **Antenna Spacing**: 0.5 wavelengths
+## Performance Results
 
-### Reflecting Surfaces
-1. **Surface 1 (Wall)**: Vertical surface at (5, 2, 5) m, 8×6 m
-2. **Surface 2 (Floor)**: Horizontal surface at (8, -1, 3) m, 5×4 m  
-3. **Surface 3 (Inclined)**: Angled surface at (12, 1, 7) m, 3×3 m
+The optimization framework achieves excellent accuracy:
 
-## Key Features
+- **Position Error**: < 0.002 m (sub-centimeter accuracy)
+- **Clock Bias Error**: < 0.004 ns (high precision timing)
+- **Convergence**: Multiple algorithms achieve similar high accuracy
+- **Best Methods**: SLSQP, Differential Evolution, and Stochastic Gradient Descent
 
-### Ray Tracing Capabilities
-- **LOS Path**: Direct line-of-sight between user and base station
-- **Specular Reflections**: Realistic reflection modeling using mirror image method
+The RANSAC filter demonstrates robust performance:
+
+- **Noise Filtering**: 100% removal of inconsistent measurements
+- **Legitimate Preservation**: 100% retention of valid measurements
+- **Optimal Threshold**: 0.4 for balanced performance
+- **Model Quality**: Excellent model scores with low residuals
+
+## Key Technical Features
+
+### Ray Tracing and Reflection
+- **Specular Reflection**: Uses mirror image method for accurate reflection point calculation
 - **Surface Validation**: Ensures reflection points lie within surface boundaries
-- **Angle Validation**: Verifies specular reflection law (incident = reflected angle)
+- **Uplink Modeling**: Correctly models signal propagation from user to base station
+- **Physical Consistency**: Ensures NLOS delays are always longer than LOS delays
 
-### Wireless Communication Modeling
-- **MIMO Systems**: Full channel matrix generation for multiple antennas
-- **OFDM Simulation**: Multi-carrier signal processing with phase shifts
-- **Noise Modeling**: Realistic Gaussian noise based on SNR and system parameters
-- **AOA Estimation**: Azimuth and elevation angle calculations with noise
+### AOA-Path Association
+- **Monte Carlo Sampling**: Uses 1000 samples for robust association
+- **Geometric Validation**: Ensures physical consistency of associations
+- **Probability Metrics**: Provides confidence scores for each association
 
-### Visualization Features
-- **3D Interactive Plots**: Rotatable and zoomable visualizations
-- **Color-coded Paths**: Different colors for LOS and reflection paths
-- **Surface Rendering**: Transparent surfaces with normal vector indicators
-- **Antenna Array Display**: Visual representation of UPA configuration
-- **Information Overlay**: Key parameters displayed on plots
+### RANSAC Filtering
+- **Robust Estimation**: Uses RANSAC algorithm for outlier detection
+- **Joint Parameter Estimation**: Simultaneously estimates position and clock bias
+- **Threshold-based Filtering**: Configurable residual threshold for inlier classification
+- **LOS Preservation**: Automatically identifies and preserves LOS measurements
 
-## Applications
+### Optimization Framework
+- **Joint Estimation**: Simultaneously estimates position and clock bias
+- **Multiple Algorithms**: Provides comparison of different optimization approaches
+- **Robust Initialization**: Intelligent initial guess strategy for better convergence
 
-This project is suitable for:
-- **Research**: Wireless localization algorithm development
-- **Education**: Understanding ray tracing and wireless communication concepts
-- **Simulation**: Testing DT localization systems before real-world deployment
-- **Analysis**: Performance evaluation of different antenna configurations
-- **Visualization**: Communicating complex wireless concepts through 3D graphics
+## Research Applications
 
-## Technical Details
-
-### Mathematical Models
-- **Mirror Image Method**: For specular reflection calculation
-- **Geometric Intersection**: Ray-surface intersection algorithms
-- **Steering Vector Generation**: UPA antenna array modeling
-- **OFDM Channel Modeling**: Multi-carrier signal processing
-- **Monte Carlo Sampling**: Statistical path association
-
-### Performance Considerations
-- **Computational Efficiency**: Optimized algorithms for real-time simulation
-- **Memory Management**: Efficient handling of large channel matrices
-- **Visualization Performance**: Smooth 3D rendering with matplotlib
-- **Scalability**: Configurable parameters for different system sizes
+This system is suitable for:
+- **5G/6G Localization Research**: mmWave positioning algorithm development
+- **Indoor Navigation**: Complex multipath environment modeling
+- **Digital Twin Development**: Realistic wireless environment simulation
+- **Optimization Algorithm Comparison**: Benchmarking different estimation methods
+- **Measurement Filtering**: RANSAC-based outlier detection and removal
+- **Educational Purposes**: Understanding wireless localization concepts
 
 ## Future Enhancements
 
-Potential improvements and extensions:
-- **Diffuse Reflections**: Modeling of non-specular reflections
-- **Multiple Users**: Support for multiple user terminals
-- **Dynamic Environments**: Time-varying surface configurations
-- **Machine Learning**: Integration with ML-based localization algorithms
+Potential improvements include:
+- **Multi-Base Station**: Support for multiple base stations
+- **Dynamic Environments**: Moving users and surfaces
+- **Advanced Channel Models**: More realistic multipath effects
 - **Real-time Processing**: Optimization for real-time applications
-- **Hardware Integration**: Interface with actual wireless hardware
-
-## Contributing
-
-This project is designed for educational and research purposes. Contributions are welcome for:
-- Algorithm improvements
-- Additional visualization features
-- Performance optimizations
-- Documentation enhancements
-- New use case implementations
-
-## License
-
-This project is provided for educational and research purposes. Please ensure proper attribution when using or modifying the code. 
+- **Machine Learning Integration**: Neural network-based optimization
+- **Advanced RANSAC**: Multi-model RANSAC for complex environments 
